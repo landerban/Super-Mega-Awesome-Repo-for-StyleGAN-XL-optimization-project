@@ -1,0 +1,88 @@
+project:
+  name: stylegan-xl-qat
+  seed: 0
+
+paths:
+  pretrained_pkl: checkpoints/imagenet512.pkl
+  dataset_zip: data/imagenet512.zip
+  out_dir: runs/default
+  calibration_cache: runs/default/calib.pt
+
+model:
+  resolution: 512
+  z_dim: 64
+  w_dim: 512
+  num_classes: 1000
+
+quant:
+  weight_bits: 8
+  act_bits: 8
+  ema_momentum: 0.99
+  symmetric_weight: true
+  symmetric_act: false
+  # Modules whose names match any of these substrings are NEVER quantized.
+  skip_modules: [mapping, torgb, ToRGB, affine]
+
+progressive:
+  total_iters: 20000
+  # All synthesis-block resolutions present in the 512² model.
+  resolutions: [4, 8, 16, 32, 64, 128, 256, 512]
+  stages:
+    - end: 5000
+      w_blocks: [4, 8, 16, 32]
+      a_blocks: [4, 8, 16, 32]
+    - end: 10000
+      w_blocks: [4, 8, 16, 32, 64, 128, 256]
+      a_blocks: [4, 8, 16, 32]
+    - end: 15000
+      w_blocks: [4, 8, 16, 32, 64, 128, 256]
+      a_blocks: [4, 8, 16, 32, 64, 128, 256]
+    - end: 20000
+      w_blocks: [4, 8, 16, 32, 64, 128, 256, 512]
+      a_blocks: [4, 8, 16, 32, 64, 128, 256, 512]
+
+train:
+  batch_size: 16
+  grad_accum: 1
+  lr_g: 0.00125
+  beta1: 0.0
+  beta2: 0.99
+  eps: 1.0e-8
+  use_8bit_adam: true
+  bf16: true
+  grad_checkpoint: true
+  ema_steps: 4
+  ema_decay: 0.999
+  ema_dtype: float16
+  log_every: 50
+  ckpt_every: 1000
+  eval_every: 5000
+
+calibration:
+  num_batches: 64
+  batch_size: 8
+
+data:
+  num_workers: 8
+  pin_memory: true
+  prefetch_factor: 4
+  use_turbojpeg: true
+  augment:
+    hflip: true
+    color_jitter: 0.0
+
+turboquant:
+  bits: 4
+  block_size: 128
+  hadamard_seed: 0
+  symmetric: true
+
+langevin:
+  steps: 10
+  step_size: 0.01
+  noise_scale: 0.005
+
+eval:
+  num_fid_samples: 50000
+  fid_batch_size: 32
+  truncation: 1.0
